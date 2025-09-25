@@ -1,18 +1,17 @@
-import asyncio
+import os
 import html
 import json
-import os
 from pathlib import Path
 from typing import Dict, Any, List
 
-from telegram import Update, ChatPermissions
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler, ChatMemberHandler,
+    Application, CommandHandler, MessageHandler,
     ContextTypes, filters
 )
 
-TOKEN = os.environ.get("TOKEN") or "PUT_YOUR_TOKEN_HERE"
+TOKEN = os.environ["TOKEN"]
 
 # Lưu theo từng chat_id: { chat_id: { user_id: {"username": str|None, "name": str} } }
 DATA_FILE = Path("members.json")
@@ -58,6 +57,7 @@ async def is_admin(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYP
     except Exception:
         return False
 
+# Lệnh cho mọi người
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("pong ✅")
 
@@ -65,33 +65,15 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "🤖 Hướng dẫn:\n"
         "/ping - kiểm tra bot\n"
-        "/sync - đồng bộ admins của group\n"
-        "/all - tag mọi người mà bot đã ghi nhận (chỉ admin dùng)\n\n"
-        "💡 Mẹo: để bot ghi nhớ nhiều người hơn, hãy tắt privacy mode (đã hướng dẫn) "
-        "và để mọi người trò chuyện/hoặc mời họ vào lại."
+        "/help - xem danh sách lệnh\n"
+        "/all - tag mọi người mà bot đã ghi nhận\n"
+        "/sync - đồng bộ admins của group (chỉ admin)\n"
     )
     await update.effective_message.reply_text(text)
-
-async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    try:
-        admins = await context.bot.get_chat_administrators(chat.id)
-        for a in admins:
-            u = a.user
-            upsert_member(chat.id, u.id, u.username, u.full_name)
-        await update.effective_message.reply_text(f"Đã đồng bộ {len(admins)} admin ✅")
-    except Exception as e:
-        await update.effective_message.reply_text(f"Lỗi khi sync admins: {e}")
 
 async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     chat = update.effective_chat
-    user = update.effective_user
-
-    # Chỉ admin được phép
-    if not await is_admin(chat.id, user.id, context):
-        await message.reply_text("⛔ Chỉ admin mới dùng /all.")
-        return
 
     cid = str(chat.id)
     users_map = db.get(cid, {})
@@ -99,12 +81,10 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("Danh sách trống. Hãy dùng /sync hoặc để mọi người nhắn vài câu rồi thử lại.")
         return
 
-    # Tạo danh sách mention
     mentions: List[str] = []
     for uid, info in users_map.items():
         mentions.append(format_mention(int(uid), info.get("username"), info.get("name")))
 
-    # Tránh quá dài: chia 20 người/1 tin (tuỳ quy mô nhóm bạn có thể tăng/giảm)
     chunk_size = 20
     chunks = [mentions[i:i+chunk_size] for i in range(0, len(mentions), chunk_size)]
 
@@ -117,7 +97,24 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True
         )
 
-# Ghi nhớ người gửi tin (để lần sau /all có thể tag)
+# Lệnh chỉ admin
+async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user = update.effective_user
+    if not await is_admin(chat.id, user.id, context):
+        await update.effective_message.reply_text("⛔ Chỉ admin mới dùng /sync.")
+        return
+
+    try:
+        admins = await context.bot.get_chat_administrators(chat.id)
+        for a in admins:
+            u = a.user
+            upsert_member(chat.id, u.id, u.username, u.full_name)
+        await update.effective_message.reply_text(f"Đã đồng bộ {len(admins)} admin ✅")
+    except Exception as e:
+        await update.effective_message.reply_text(f"Lỗi khi sync admins: {e}")
+
+# Ghi nhớ user khi nhắn
 async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     u = update.effective_user
@@ -125,7 +122,7 @@ async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     upsert_member(chat.id, u.id, u.username, u.full_name)
 
-# Ghi nhớ khi có thành viên mới vào nhóm
+# Ghi nhớ khi có thành viên mới vào
 async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     msg = update.effective_message
@@ -136,17 +133,19 @@ def main():
     load_db()
     app = Application.builder().token(TOKEN).build()
 
+    # Lệnh cho mọi người
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(CommandHandler("all", cmd_all))
 
-    # Thành viên mới
+    # Lệnh chỉ admin
+    app.add_handler(CommandHandler("sync", cmd_sync))
+
+    # Theo dõi sự kiện
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members))
-    # Theo dõi mọi tin nhắn (cần privacy mode OFF để nhận tin thường)
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
 
-    app.run_polling(close_loop=False)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
