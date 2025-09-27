@@ -109,6 +109,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help - xem danh sách lệnh\n"
         "/all - tag mọi người mà bot đã ghi nhận\n"
         "/sync - đồng bộ admins (chỉ admin)\n"
+        "/poll - Cú pháp: \n/poll [anonymous]\ntitle: Nội dung\noption: ...\noption: ..."
     )
     await update.effective_message.reply_text(text)
 
@@ -155,6 +156,70 @@ async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.effective_message.reply_text(f"Lỗi khi sync admins: {e}")
 
+async def cmd_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    chat = update.effective_chat
+
+    # Kiểm tra có chữ 'anonymous' trong command không
+    args = message.text.split("\n", 1)
+    first_line = args[0].lower()
+    is_anonymous = "anonymous" in first_line
+
+    if len(args) < 2:
+        await message.reply_text(
+            "📌 Cú pháp:\n"
+            "/poll [anonymous]\n"
+            "title: Nội dung\n"
+            "option: ...\n"
+            "option: ...\n"
+            "..."
+        )
+        return
+
+    # Parse các dòng sau
+    lines = args[1].split("\n")
+    title = None
+    options = []
+
+    for line in lines:
+        line = line.strip()
+        if line.lower().startswith("title:"):
+            title = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("option"):
+            opt = line.split(":", 1)[1].strip()
+            if opt:
+                options.append(opt)
+
+    if not title or len(options) < 2:
+        await message.reply_text("⚠️ Phải có `title` và ít nhất 2 option.")
+        return
+
+    # 🔔 Tag all trước khi gửi poll
+    load_db()
+    cid = str(chat.id)
+    users_map = db.get(cid, {})
+    mentions = [
+        format_mention(int(uid), info.get("username"), info.get("name"))
+        for uid, info in users_map.items()
+    ]
+    if mentions:
+        txt = "🔔 Mọi người ơi, vote nè:\n" + " ".join(mentions)
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=txt,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
+        )
+
+    # Gửi poll
+    await context.bot.send_poll(
+        chat_id=chat.id,
+        question=title,
+        options=options,
+        is_anonymous=is_anonymous
+    )
+
+
 # ------------------ Track events ------------------
 async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -187,6 +252,7 @@ def main():
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("all", cmd_all))
     app.add_handler(CommandHandler("sync", cmd_sync))
+    app.add_handler(CommandHandler("poll", cmd_poll))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
