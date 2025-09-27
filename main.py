@@ -3,6 +3,7 @@ import html
 import json
 from pathlib import Path
 from typing import Dict, Any, List
+import datetime
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -91,6 +92,17 @@ async def is_admin(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYP
     except Exception:
         return False
 
+# ------------------ Datetime Helpers -----------
+def next_weekday(target_weekday: int) -> datetime.date:
+    """
+    Trả về ngày gần nhất là target_weekday (0=Monday,...,6=Sunday).
+    Nếu hôm nay đúng ngày đó thì trả về hôm nay luôn.
+    """
+    today = datetime.date.today()
+    days_ahead = (target_weekday - today.weekday() + 7) % 7
+    # KHÔNG ép buộc +7 nếu days_ahead == 0 nữa
+    return today + datetime.timedelta(days=days_ahead)
+
 # ------------------ Commands ------------------
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("pong ✅")
@@ -109,7 +121,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help - xem danh sách lệnh\n"
         "/all - tag mọi người mà bot đã ghi nhận\n"
         "/sync - đồng bộ admins (chỉ admin)\n"
-        "/poll - Cú pháp: \n/poll [anonymous]\ntitle: Nội dung\noption: ...\noption: ..."
+        "/poll - Cú pháp: \n/poll [anonymous]\ntitle: Nội dung\noption: ...\noption: ...\n"
+        "/poll_sunday - tạo poll chơi chủ nhật sắp tới\n"
+        "/poll_tuesday - tạo poll chơi thứ 3 sắp tới\n"
     )
     await update.effective_message.reply_text(text)
 
@@ -219,6 +233,62 @@ async def cmd_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_anonymous=is_anonymous
     )
 
+async def cmd_poll_sunday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+
+    # tìm ngày chủ nhật gần nhất sắp tới
+    sunday = next_weekday(6)  # 6 = Sunday
+    title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
+    options = ["Có", "Không", "+1", "+2", "+3"]
+
+    # tag all
+    load_db()
+    cid = str(chat.id)
+    users_map = db.get(cid, {})
+    mentions = [
+        format_mention(int(uid), info.get("username"), info.get("name"))
+        for uid, info in users_map.items()
+    ]
+    if mentions:
+        txt = "🔔 Mọi người ơi, vote nè:\n" + " ".join(mentions)
+        await context.bot.send_message(chat.id, txt, parse_mode=ParseMode.HTML)
+
+    # gửi poll
+    await context.bot.send_poll(
+        chat_id=chat.id,
+        question=title,
+        options=options,
+        is_anonymous=False
+    )
+
+async def cmd_poll_tuesday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+
+    # tìm ngày thứ 3 gần nhất sắp tới
+    tuesday = next_weekday(1)  # 1 = Tuesday
+    title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
+    options = ["Có", "Không"]
+
+    # tag all
+    load_db()
+    cid = str(chat.id)
+    users_map = db.get(cid, {})
+    mentions = [
+        format_mention(int(uid), info.get("username"), info.get("name"))
+        for uid, info in users_map.items()
+    ]
+    if mentions:
+        txt = "🔔 Mọi người ơi, vote nè:\n" + " ".join(mentions)
+        await context.bot.send_message(chat.id, txt, parse_mode=ParseMode.HTML)
+
+    # gửi poll
+    await context.bot.send_poll(
+        chat_id=chat.id,
+        question=title,
+        options=options,
+        is_anonymous=False
+    )
+
 
 # ------------------ Track events ------------------
 async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,6 +323,8 @@ def main():
     app.add_handler(CommandHandler("all", cmd_all))
     app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(CommandHandler("poll", cmd_poll))
+    app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
+    app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
