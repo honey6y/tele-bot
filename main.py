@@ -127,7 +127,7 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for uid, info in users_map.items():
         mentions.append(format_mention(int(uid), info.get("username"), info.get("name")))
 
-    chunk_size = 20
+    chunk_size = 50
     chunks = [mentions[i:i+chunk_size] for i in range(0, len(mentions), chunk_size)]
 
     for idx, c in enumerate(chunks, start=1):
