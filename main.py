@@ -131,7 +131,7 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chunks = [mentions[i:i+chunk_size] for i in range(0, len(mentions), chunk_size)]
 
     for idx, c in enumerate(chunks, start=1):
-        txt = "🔔 Tag All (phần {}/{}):\n".format(idx, len(chunks)) + " ".join(c)
+        txt = "".format(idx, len(chunks)) + " ".join(c)
         await context.bot.send_message(
             chat_id=chat.id,
             text=txt,
