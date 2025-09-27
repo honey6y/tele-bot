@@ -95,6 +95,13 @@ async def is_admin(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYP
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("pong ✅")
 
+async def cmd_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    await update.effective_message.reply_text(
+        f"📌 Chat ID của nhóm này là: <code>{chat.id}</code>",
+        parse_mode=ParseMode.HTML
+    )
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "🤖 Hướng dẫn:\n"
@@ -176,6 +183,7 @@ def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("ping", cmd_ping))
+    app.add_handler(CommandHandler("id", cmd_id))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("all", cmd_all))
     app.add_handler(CommandHandler("sync", cmd_sync))
