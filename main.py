@@ -239,12 +239,18 @@ def main():
     vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
 
     async def job_tuesday(context: ContextTypes.DEFAULT_TYPE):
+        today = datetime.date.today()
+        if today.weekday() != 0:  # chỉ chạy nếu hôm nay là Monday
+            return
         tuesday = next_weekday(1)
         title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
         options = ["Có", "Không"]
         await create_poll(TARGET_CHAT_ID, title, options, context, thread_id=TOPIC_TUESDAY_ID)
 
     async def job_sunday(context: ContextTypes.DEFAULT_TYPE):
+        today = datetime.date.today()
+        if today.weekday() != 4:  # chỉ chạy nếu hôm nay là Friday
+            return
         sunday = next_weekday(6)
         title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
         options = ["Có", "Không", "+1", "+2", "+3"]
