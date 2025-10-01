@@ -147,18 +147,31 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
+    thread_id = update.effective_message.message_thread_id  # lấy topic hiện tại
     load_db()
     users_map = db.get(str(chat.id), {})
     if not users_map:
-        await update.effective_message.reply_text("📭 Danh sách trống. Hãy để mọi người chat vài câu hoặc dùng /sync.")
+        await update.effective_message.reply_text(
+            "📭 Danh sách trống. Hãy để mọi người chat vài câu hoặc dùng /sync."
+        )
         return
     mentions = [
         format_mention(int(uid), info.get("username"), info.get("name"))
         for uid, info in users_map.items()
     ]
+    text_cmd = update.effective_message.text.lower()
+    prefix = ""
+    if "vote" in text_cmd:
+        prefix = "A/E vote giúp em nhé:\n"
+
     chunk_size = 50
     for i in range(0, len(mentions), chunk_size):
-        await context.bot.send_message(chat.id, " ".join(mentions[i:i+chunk_size]), parse_mode=ParseMode.HTML)
+        await context.bot.send_message(
+            chat.id,
+            prefix + " ".join(mentions[i:i+chunk_size]),
+            parse_mode=ParseMode.HTML,
+            message_thread_id=thread_id   # gửi đúng topic
+        )
 
 async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -255,6 +268,28 @@ def main():
         title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
         options = ["Có", "Không", "+1", "+2", "+3"]
         await create_poll(TARGET_CHAT_ID, title, options, context, thread_id=TOPIC_SUNDAY_ID)
+    async def job_monthly_poll(context: ContextTypes.DEFAULT_TYPE):
+        today = datetime.date.today()
+        if today.day != 27:
+            return
+        # Lấy tháng tiếp theo
+        next_month = today.month + 1
+        year = today.year
+        if next_month > 12:
+            next_month = 1
+            year += 1
+
+        title = f"Tham gia chơi cầu cố định thứ 3 hàng tuần, tháng {next_month}/{year}"
+        options = ["Chơi", "Không chơi"]
+
+        await create_poll(
+            TARGET_CHAT_ID,
+            title,
+            options,
+            context,
+            thread_id=TOPIC_TUESDAY_ID  # hoặc topic bạn muốn gắn vào
+        )
+
 
     app.job_queue.run_daily(
         job_tuesday,
@@ -267,6 +302,12 @@ def main():
         time=datetime.time(hour=9, minute=0, tzinfo=vn_tz),
         days=(4,),  # Friday
         name="auto_poll_sunday"
+    )
+    app.job_queue.run_daily(
+        job_monthly_poll,
+        time=datetime.time(hour=9, minute=0, tzinfo=vn_tz),
+        days=tuple(range(7)),  # chạy kiểm tra mỗi ngày
+        name="auto_poll_monthly"
     )
 
     app.run_polling()
