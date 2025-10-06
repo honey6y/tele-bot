@@ -9,6 +9,8 @@ import pytz  # timezone VN
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from telegram import Update
 from telegram.constants import ParseMode
+from threading import Thread
+from flask import Flask
 
 TOKEN = os.environ["TOKEN"]
 
@@ -18,9 +20,7 @@ TELETHON_FILE = Path("telethon_members.json")
 db: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 # ------------------ Config ------------------
-# 👉 thay bằng chat_id group thật
-TARGET_CHAT_ID = -1002727375183
-# 👉 thay bằng topic id thật (message_thread_id)
+TARGET_CHAT_ID = -1002727375183  # ID group thật
 TOPIC_TUESDAY_ID = 9
 TOPIC_SUNDAY_ID = 4
 
@@ -147,7 +147,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    thread_id = update.effective_message.message_thread_id  # lấy topic hiện tại
+    thread_id = update.effective_message.message_thread_id
     load_db()
     users_map = db.get(str(chat.id), {})
     if not users_map:
@@ -155,6 +155,7 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📭 Danh sách trống. Hãy để mọi người chat vài câu hoặc dùng /sync."
         )
         return
+
     mentions = [
         format_mention(int(uid), info.get("username"), info.get("name"))
         for uid, info in users_map.items()
@@ -166,12 +167,22 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chunk_size = 50
     for i in range(0, len(mentions), chunk_size):
-        await context.bot.send_message(
-            chat.id,
-            prefix + " ".join(mentions[i:i+chunk_size]),
-            parse_mode=ParseMode.HTML,
-            message_thread_id=thread_id   # gửi đúng topic
-        )
+        text = prefix + " ".join(mentions[i:i+chunk_size])
+        if thread_id:
+            # ✅ Gửi đúng topic (group có topic)
+            await context.bot.send_message(
+                chat.id,
+                text,
+                parse_mode=ParseMode.HTML,
+                message_thread_id=thread_id
+            )
+        else:
+            # ✅ Group thường (không có topic)
+            await context.bot.send_message(
+                chat.id,
+                text,
+                parse_mode=ParseMode.HTML
+            )
 
 async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -203,19 +214,22 @@ async def cmd_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not title or len(options) < 2:
         await update.effective_message.reply_text("⚠️ Phải có title và ít nhất 2 option.")
         return
-    await create_poll(update.effective_chat.id, title, options, context, tag_all=True, is_anonymous=is_anonymous)
+    thread_id = update.effective_message.message_thread_id
+    await create_poll(update.effective_chat.id, title, options, context, tag_all=True, is_anonymous=is_anonymous, thread_id=thread_id)
 
 async def cmd_poll_sunday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sunday = next_weekday(6)
     title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
     options = ["Có", "Không", "+1", "+2", "+3"]
-    await create_poll(update.effective_chat.id, title, options, context)
+    thread_id = update.effective_message.message_thread_id
+    await create_poll(update.effective_chat.id, title, options, context, thread_id=thread_id)
 
 async def cmd_poll_tuesday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tuesday = next_weekday(1)
     title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
     options = ["Có", "Không"]
-    await create_poll(update.effective_chat.id, title, options, context)
+    thread_id = update.effective_message.message_thread_id
+    await create_poll(update.effective_chat.id, title, options, context, thread_id=thread_id)
 
 # ------------------ Track events ------------------
 async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -228,7 +242,6 @@ async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     for u in update.effective_message.new_chat_members:
         upsert_member(chat.id, u.id, u.username, u.full_name)
-
 
 # ------------------ Main ------------------
 def main():
@@ -253,7 +266,8 @@ def main():
 
     async def job_tuesday(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
-        if today.weekday() != 0:  # chỉ chạy nếu hôm nay là Monday
+        print("🔄 job_tuesday chạy:", today)
+        if today.weekday() != 0:
             return
         tuesday = next_weekday(1)
         title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
@@ -262,55 +276,48 @@ def main():
 
     async def job_sunday(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
-        if today.weekday() != 4:  # chỉ chạy nếu hôm nay là Friday
+        print("🔄 job_sunday chạy:", today)
+        if today.weekday() != 4:
             return
         sunday = next_weekday(6)
         title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
         options = ["Có", "Không", "+1", "+2", "+3"]
         await create_poll(TARGET_CHAT_ID, title, options, context, thread_id=TOPIC_SUNDAY_ID)
+
     async def job_monthly_poll(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
+        print("🔄 job_monthly_poll chạy:", today)
         if today.day != 27:
             return
-        # Lấy tháng tiếp theo
         next_month = today.month + 1
         year = today.year
         if next_month > 12:
             next_month = 1
             year += 1
-
         title = f"Tham gia chơi cầu cố định thứ 3 hàng tuần, tháng {next_month}/{year}"
         options = ["Chơi", "Không chơi"]
+        await create_poll(TARGET_CHAT_ID, title, options, context, thread_id=TOPIC_TUESDAY_ID)
 
-        await create_poll(
-            TARGET_CHAT_ID,
-            title,
-            options,
-            context,
-            thread_id=TOPIC_TUESDAY_ID  # hoặc topic bạn muốn gắn vào
-        )
-
-
-    app.job_queue.run_daily(
-        job_tuesday,
-        time=datetime.time(hour=9, minute=0, tzinfo=vn_tz),
-        days=(0,),  # Monday
-        name="auto_poll_tuesday"
-    )
-    app.job_queue.run_daily(
-        job_sunday,
-        time=datetime.time(hour=9, minute=0, tzinfo=vn_tz),
-        days=(4,),  # Friday
-        name="auto_poll_sunday"
-    )
-    app.job_queue.run_daily(
-        job_monthly_poll,
-        time=datetime.time(hour=9, minute=0, tzinfo=vn_tz),
-        days=tuple(range(7)),  # chạy kiểm tra mỗi ngày
-        name="auto_poll_monthly"
-    )
+    app.job_queue.run_daily(job_tuesday, time=datetime.time(hour=9, minute=0, tzinfo=vn_tz), days=(0,), name="auto_poll_tuesday")
+    app.job_queue.run_daily(job_sunday, time=datetime.time(hour=9, minute=0, tzinfo=vn_tz), days=(4,), name="auto_poll_sunday")
+    app.job_queue.run_daily(job_monthly_poll, time=datetime.time(hour=9, minute=0, tzinfo=vn_tz), days=tuple(range(7)), name="auto_poll_monthly")
 
     app.run_polling()
 
+    # ------------------ Keep Alive for Railway ------------------
+    app_web = Flask(__name__)
+
+    @app_web.route("/")
+    def home():
+        return "✅ Telegram bot is running and alive!"
+
+    def run_flask():
+        port = int(os.environ.get("PORT", 8080))
+        app_web.run(host="0.0.0.0", port=port)
+
+    # Khởi động Flask ở thread riêng
+    Thread(target=run_flask, daemon=True).start()
+
+    # ------------------ Run Bot ------------------
 if __name__ == "__main__":
     main()
