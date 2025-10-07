@@ -96,6 +96,9 @@ async def create_poll(
     is_anonymous: bool = False,
     thread_id: int | None = None
 ):
+    chat = await context.bot.get_chat(chat_id)
+    is_forum = getattr(chat, "is_forum", False)
+
     # Tag all nếu cần
     if tag_all:
         load_db()
@@ -106,21 +109,42 @@ async def create_poll(
         ]
         if mentions:
             txt = "🔔 Mọi người ơi, vote nè:\n" + " ".join(mentions)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=txt,
-                parse_mode=ParseMode.HTML,
-                message_thread_id=thread_id
-            )
+            try:
+                if is_forum and thread_id:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=txt,
+                        parse_mode=ParseMode.HTML,
+                        message_thread_id=thread_id
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=txt,
+                        parse_mode=ParseMode.HTML
+                    )
+            except Exception as e:
+                print(f"⚠️ Lỗi khi tag all: {e}")
 
     # Gửi poll
-    await context.bot.send_poll(
-        chat_id=chat_id,
-        question=title,
-        options=options,
-        is_anonymous=is_anonymous,
-        message_thread_id=thread_id
-    )
+    try:
+        if is_forum and thread_id:
+            await context.bot.send_poll(
+                chat_id=chat_id,
+                question=title,
+                options=options,
+                is_anonymous=is_anonymous,
+                message_thread_id=thread_id
+            )
+        else:
+            await context.bot.send_poll(
+                chat_id=chat_id,
+                question=title,
+                options=options,
+                is_anonymous=is_anonymous
+            )
+    except Exception as e:
+        print(f"⚠️ Lỗi khi gửi poll: {e}")
 
 # ------------------ Commands ------------------
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,6 +172,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     thread_id = update.effective_message.message_thread_id
+    is_forum = getattr(chat, "is_forum", False)
+
     load_db()
     users_map = db.get(str(chat.id), {})
     if not users_map:
@@ -168,21 +194,22 @@ async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chunk_size = 50
     for i in range(0, len(mentions), chunk_size):
         text = prefix + " ".join(mentions[i:i+chunk_size])
-        if thread_id:
-            # ✅ Gửi đúng topic (group có topic)
-            await context.bot.send_message(
-                chat.id,
-                text,
-                parse_mode=ParseMode.HTML,
-                message_thread_id=thread_id
-            )
-        else:
-            # ✅ Group thường (không có topic)
-            await context.bot.send_message(
-                chat.id,
-                text,
-                parse_mode=ParseMode.HTML
-            )
+        try:
+            if is_forum and thread_id:
+                await context.bot.send_message(
+                    chat.id,
+                    text,
+                    parse_mode=ParseMode.HTML,
+                    message_thread_id=thread_id
+                )
+            else:
+                await context.bot.send_message(
+                    chat.id,
+                    text,
+                    parse_mode=ParseMode.HTML
+                )
+        except Exception as e:
+            print(f"⚠️ Lỗi khi gửi /all: {e}")
 
 async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
