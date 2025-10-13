@@ -224,20 +224,15 @@ async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(f"Đã đồng bộ {len(admins)} admin ✅")
 
 async def cmd_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = update.effective_message.text.split("\n", 1)
+    args = update.effective_message.text.split("\n", 2)
     first_line = args[0].lower()
     is_anonymous = "anonymous" in first_line
     if len(args) < 2:
-        await update.effective_message.reply_text("📌 Cú pháp:\n/poll [anonymous]\ntitle: ...\noption: ...")
+        await update.effective_message.reply_text("📌 Cú pháp:\n/poll [anonymous]\n[title]\n[option]\n[option] ...")
         return
-    title, options = None, []
-    for line in args[1].split("\n"):
-        if line.lower().startswith("title:"):
-            title = line.split(":", 1)[1].strip()
-        elif line.lower().startswith("option"):
-            opt = line.split(":", 1)[1].strip()
-            if opt:
-                options.append(opt)
+    title, options = args[1], []
+    for line in args[2].split("\n"):
+        options.append(line.strip())
     if not title or len(options) < 2:
         await update.effective_message.reply_text("⚠️ Phải có title và ít nhất 2 option.")
         return
@@ -255,6 +250,13 @@ async def cmd_poll_tuesday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tuesday = next_weekday(1)
     title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
     options = ["Có", "Không"]
+    thread_id = update.effective_message.message_thread_id
+    await create_poll(update.effective_chat.id, title, options, context, thread_id=thread_id)
+
+async def cmd_poll_thursday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    thursday = next_weekday(3)
+    title = f"Đá bóng thứ 5 19h00-20h30 ({thursday.strftime('%d/%m')})"
+    options = ["Có", "Không", "+1"]
     thread_id = update.effective_message.message_thread_id
     await create_poll(update.effective_chat.id, title, options, context, thread_id=thread_id)
 
@@ -284,6 +286,7 @@ def main():
     app.add_handler(CommandHandler("poll", cmd_poll))
     app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
     app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
+    app.add_handler(CommandHandler("poll_thursday", cmd_poll_thursday))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
