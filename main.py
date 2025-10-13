@@ -163,9 +163,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help - danh sách lệnh\n"
         "/all - tag mọi người\n"
         "/sync - đồng bộ admins (chỉ admin)\n"
-        "/poll - Cú pháp: \n/poll [anonymous]\ntitle: Nội dung\noption: ...\noption: ...\n"
-        "/poll_sunday - poll chủ nhật\n"
-        "/poll_tuesday - poll thứ 3\n"
+        "/poll - Cú pháp: \n/poll [anonymous]\n[title]\n[option]\n[option]\n..."
+        "/poll_sunday - poll chủ nhật (cầu lông)\n"
+        "/poll_tuesday - poll thứ 3 (cầu lông)\n"
+        "/poll_thursday - poll thứ 5 (đá bóng)\n"
     )
     await update.effective_message.reply_text(text)
 
