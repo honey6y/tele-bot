@@ -11,7 +11,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, ContextTyp
 from telegram import Update
 from telegram.constants import ParseMode
 from threading import Thread
-# from flask import Flask
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -338,20 +337,6 @@ def main():
     app.job_queue.run_daily(job_monthly_poll, time=datetime.time(hour=9, minute=0, tzinfo=vn_tz), days=tuple(range(7)), name="auto_poll_monthly")
 
     app.run_polling()
-
-    # # ------------------ Keep Alive for Railway ------------------
-    # app_web = Flask(__name__)
-
-    # @app_web.route("/")
-    # def home():
-    #     return "✅ Telegram bot is running and alive!"
-
-    # def run_flask():
-    #     port = int(os.environ.get("PORT", 8080))
-    #     app_web.run(host="0.0.0.0", port=port)
-
-    # # Khởi động Flask ở thread riêng
-    # Thread(target=run_flask, daemon=True).start()
 
     # ------------------ Run Bot ------------------
 if __name__ == "__main__":
