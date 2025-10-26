@@ -1,6 +1,7 @@
 import os
 import html
 import json
+from dotenv import load_dotenv
 from pathlib import Path
 from typing import Dict, Any, List
 import datetime
@@ -12,7 +13,10 @@ from telegram.constants import ParseMode
 from threading import Thread
 from flask import Flask
 
-TOKEN = os.environ["TOKEN"]
+load_dotenv()
+TOKEN = os.getenv("TOKEN")
+if not TOKEN:
+    raise ValueError("❌ Không tìm thấy TOKEN! Hãy tạo file .env với dòng: TOKEN=your_token_here")
 
 # File lưu dữ liệu
 DATA_FILE = Path("members.json")
