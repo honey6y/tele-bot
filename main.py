@@ -253,7 +253,7 @@ async def cmd_poll_sunday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_poll_tuesday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tuesday = next_weekday(1)
     title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
-    options = ["Có", "Không"]
+    options = ["Có", "Không", "Xé vé lẻ"]
     thread_id = update.effective_message.message_thread_id
     await create_poll(update.effective_chat.id, title, options, context, thread_id=thread_id)
 
@@ -305,7 +305,7 @@ def main():
             return
         tuesday = next_weekday(1)
         title = f"Chơi cố định thứ 3 17h30-19h30 ({tuesday.strftime('%d/%m')})"
-        options = ["Có", "Không"]
+        options = ["Có", "Không", "Xé vé lẻ"]
         await create_poll(TARGET_CHAT_ID, title, options, context, thread_id=TOPIC_TUESDAY_ID)
 
     async def job_sunday(context: ContextTypes.DEFAULT_TYPE):
