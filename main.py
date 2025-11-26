@@ -300,7 +300,7 @@ def main():
 
     async def job_tuesday(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
-        print("🔄 job_tuesday chạy:", today)
+        print("🔄 job_tuesday chạy:", today, "today.weekday", today.weekday())
         if today.weekday() != 0:
             return
         tuesday = next_weekday(1)
@@ -310,7 +310,7 @@ def main():
 
     async def job_sunday(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
-        print("🔄 job_sunday chạy:", today)
+        print("🔄 job_sunday chạy:", today, "today.weekday", today.weekday())
         if today.weekday() != 4:
             return
         sunday = next_weekday(6)
@@ -320,8 +320,8 @@ def main():
 
     async def job_monthly_poll(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.date.today()
-        print("🔄 job_monthly_poll chạy:", today)
-        if today.day != 27:
+        print("🔄 job_monthly_poll chạy:", today, "today.weekday", today.day)
+        if today.day != 25:
             return
         next_month = today.month + 1
         year = today.year
