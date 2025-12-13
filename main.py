@@ -330,25 +330,25 @@ async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ------------------ Main ------------------
-def main():
+# def main():
     # load_db()
     # import_from_telethon()
     # app = Application.builder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("ping", cmd_ping))
-    app.add_handler(CommandHandler("id", cmd_id))
-    app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler("all", cmd_all))
-    app.add_handler(CommandHandler("sync", cmd_sync))
-    app.add_handler(CommandHandler("poll", cmd_poll))
-    app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
-    app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
-    app.add_handler(CommandHandler("poll_thursday", cmd_poll_thursday))
+app.add_handler(CommandHandler("ping", cmd_ping))
+app.add_handler(CommandHandler("id", cmd_id))
+app.add_handler(CommandHandler("help", cmd_help))
+app.add_handler(CommandHandler("all", cmd_all))
+app.add_handler(CommandHandler("sync", cmd_sync))
+app.add_handler(CommandHandler("poll", cmd_poll))
+app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
+app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
+app.add_handler(CommandHandler("poll_thursday", cmd_poll_thursday))
 
-    app.add_handler(
-        MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members)
-    )
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
+app.add_handler(
+    MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members)
+)
+app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
 
     # ------------------ Jobs ------------------
     # vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
