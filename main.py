@@ -25,6 +25,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 WEBHOOK_PATH = "/webhook"
 PORT = int(os.environ.get("PORT", 10000))
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
 
 if not TOKEN:
@@ -42,6 +43,8 @@ db: Dict[str, Dict[str, Dict[str, Any]]] = {}
 TARGET_CHAT_ID = -1002727375183  # ID group thật
 TOPIC_TUESDAY_ID = 9
 TOPIC_SUNDAY_ID = 4
+
+app = Application.builder().token(TOKEN).build()
 
 
 # ------------------ DB Helpers ------------------
@@ -330,7 +333,7 @@ async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     # load_db()
     # import_from_telethon()
-    app = Application.builder().token(TOKEN).build()
+    # app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("id", cmd_id))
