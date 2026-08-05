@@ -75,6 +75,16 @@ def upsert_member(chat_id: int, user_id: int, username: str | None, name: str):
     save_db()
 
 
+def remove_member(chat_id: int, user_id: int):
+    cid = str(chat_id)
+    uid = str(user_id)
+    load_db()
+    members = db.get(cid)
+    if members and uid in members:
+        del members[uid]
+        save_db()
+
+
 def import_from_telethon():
     if not TELETHON_FILE.exists():
         return
@@ -85,10 +95,7 @@ def import_from_telethon():
         return
     load_db()
     for chat_id, members in telethon_data.items():
-        if chat_id not in db:
-            db[chat_id] = {}
-        for uid, info in members.items():
-            db[chat_id][uid] = info
+        db[chat_id] = members
     save_db()
     TELETHON_FILE.rename("telethon_members.imported.json")
     print("✅ Import từ Telethon xong.")
@@ -368,6 +375,13 @@ async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upsert_member(chat.id, u.id, u.username, u.full_name)
 
 
+async def track_left_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user = update.effective_message.left_chat_member
+    if chat and user:
+        remove_member(chat.id, user.id)
+
+
 # ------------------ Main ------------------
 # def main():
     # load_db()
@@ -390,6 +404,9 @@ app.add_handler(CommandHandler("poll_thursday", cmd_poll_thursday))
 
 app.add_handler(
     MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members)
+)
+app.add_handler(
+    MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, track_left_member)
 )
 app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, track_message))
 
