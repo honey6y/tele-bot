@@ -196,6 +196,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help - danh sách lệnh\n"
         "/all - tag mọi người\n"
         "/sync - đồng bộ admins (chỉ admin)\n"
+        "/stop_poll - reply vào poll để dừng (chỉ admin)\n"
         "/poll - Cú pháp: \n/poll [anonymous]\n[title]\n[option]\n[option]\n..."
         "/poll_sunday - poll chủ nhật (cầu lông)\n"
         "/poll_tuesday - poll thứ 3 (cầu lông)\n"
@@ -286,6 +287,31 @@ async def cmd_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def cmd_stop_poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
+
+    if not await is_admin(chat.id, user.id, context):
+        await message.reply_text("❌ Chỉ admin mới được dừng poll.")
+        return
+
+    replied_message = message.reply_to_message
+    if not replied_message or not replied_message.poll:
+        await message.reply_text("❌ Hãy reply lệnh /stop_poll vào poll cần dừng.")
+        return
+
+    try:
+        await context.bot.stop_poll(
+            chat_id=chat.id,
+            message_id=replied_message.message_id,
+        )
+        await message.reply_text("✅ Đã dừng poll.")
+    except Exception as e:
+        print(f"⚠️ Lỗi khi dừng poll: {e}")
+        await message.reply_text("❌ Không thể dừng poll. Bot chỉ dừng được poll do bot tạo.")
+
+
 async def cmd_poll_sunday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sunday = next_weekday(6)
     title = f"Chơi chủ nhật 17h30-19h30 ({sunday.strftime('%d/%m')})"
@@ -354,6 +380,7 @@ app.add_handler(CommandHandler("help", cmd_help))
 app.add_handler(CommandHandler("all", cmd_all))
 app.add_handler(CommandHandler("sync", cmd_sync))
 app.add_handler(CommandHandler("poll", cmd_poll))
+app.add_handler(CommandHandler("stop_poll", cmd_stop_poll))
 app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
 app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
 app.add_handler(
