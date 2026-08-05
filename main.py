@@ -199,6 +199,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/poll - Cú pháp: \n/poll [anonymous]\n[title]\n[option]\n[option]\n..."
         "/poll_sunday - poll chủ nhật (cầu lông)\n"
         "/poll_tuesday - poll thứ 3 (cầu lông)\n"
+        "/poll_thursday_badminton - poll thứ 5 (cầu lông)\n"
         "/poll_thursday - poll thứ 5 (đá bóng)\n"
     )
     await update.effective_message.reply_text(text)
@@ -305,10 +306,22 @@ async def cmd_poll_tuesday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def cmd_poll_thursday_badminton(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+    thursday = next_weekday(3)
+    title = f"Chơi cầu lông thứ 5 17h30-19h30 ({thursday.strftime('%d/%m')})"
+    options = ["Có", "Không", "+1 (là 2 slot)"]
+    thread_id = update.effective_message.message_thread_id
+    await create_poll(
+        update.effective_chat.id, title, options, context, thread_id=thread_id
+    )
+
+
 async def cmd_poll_thursday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     thursday = next_weekday(3)
     title = f"Đá bóng thứ 5 19h00-20h30 ({thursday.strftime('%d/%m')})"
-    options = ["Có", "Không", "+1"]
+    options = ["Có", "Không", "+1", "Đá lẻ"]
     thread_id = update.effective_message.message_thread_id
     await create_poll(
         update.effective_chat.id, title, options, context, thread_id=thread_id
@@ -343,6 +356,9 @@ app.add_handler(CommandHandler("sync", cmd_sync))
 app.add_handler(CommandHandler("poll", cmd_poll))
 app.add_handler(CommandHandler("poll_sunday", cmd_poll_sunday))
 app.add_handler(CommandHandler("poll_tuesday", cmd_poll_tuesday))
+app.add_handler(
+    CommandHandler("poll_thursday_badminton", cmd_poll_thursday_badminton)
+)
 app.add_handler(CommandHandler("poll_thursday", cmd_poll_thursday))
 
 app.add_handler(
